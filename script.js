@@ -34,9 +34,7 @@ function convertRawCommentsToDocxFormat(rawComments) {
             }),
             new docx.Paragraph({}),
             new docx.Paragraph({
-                children: [
-                    new docx.TextRun({ text: comment.explanation })
-                ]
+                children: [new docx.TextRun({ text: comment.explanation })]
             })
         ]
     }));
@@ -44,20 +42,29 @@ function convertRawCommentsToDocxFormat(rawComments) {
 
 function createSectionsWithComments(rawComments) {
     const essayText = document.querySelector("#my-text").innerText;
-    const essayPrompt = document.querySelector(".essay_prompt .elementor-widget-container").innerText.trim();
-    const essayParagraphs = essayText.split(/\\r?\\n/).map(p => p.trimStart());
-    const essayPromptParagraphs = essayPrompt.split(/\\r?\\n/).map(p => p.trimStart());
+    const essayPrompt = document
+        .querySelector(".essay_prompt .elementor-widget-container")
+        .innerText.trim();
+    const essayParagraphs = essayText.split(/\\r?\\n/).map((p) => p.trimStart());
+    const essayPromptParagraphs = essayPrompt
+        .split(/\\r?\\n/)
+        .map((p) => p.trimStart());
     const outputParagraphs = [];
 
     // Add the essay prompt paragraphs to the output
     for (let promptParagraph of essayPromptParagraphs) {
-        if (promptParagraph.trim()) {  // Check if paragraph is not just whitespace
-            outputParagraphs.push(new docx.Paragraph({
-                children: [new docx.TextRun({
-                    text: promptParagraph,
-                    bold: true
-                })]
-            }));
+        if (promptParagraph.trim()) {
+            // Check if paragraph is not just whitespace
+            outputParagraphs.push(
+                new docx.Paragraph({
+                    children: [
+                        new docx.TextRun({
+                            text: promptParagraph,
+                            bold: true
+                        })
+                    ]
+                })
+            );
         }
     }
 
@@ -154,27 +161,71 @@ function exportDocument() {
 }
 
 function createNormalSections(className) {
-    const element = document.querySelector(`.${className} .elementor-widget-container .elementor-shortcode`);
+    const element = document.querySelector(
+        `.${className} .elementor-widget-container .elementor-shortcode`
+    );
     if (!element) {
         console.warn(`No element found with class name: ${className}`);
         return [];
     }
 
     const sections = [];
-    element.childNodes.forEach(child => {
-        if (child.nodeType === 1) {  // Check if the node is an element
-            if (child.tagName === 'P') {
+    element.childNodes.forEach((child) => {
+        if (child.nodeType === 1) {
+            // Check if the node is an element
+            if (child.tagName === "P") {
                 // For paragraph tags
-                sections.push(htmlParagraphToDocx(child.innerHTML));
-                console.log({ innerHTML })
-            } else if (child.tagName === 'OL' || child.tagName === 'UL') {
-                // For ordered or unordered lists
-                sections.push(bulletPointsToDocx(child.innerHTML));
-            }
+                sections.push(htmlParagraphToDocx(child.outerHTML));
+            } else if (child.tagName === "OL" || child.tagName === "UL") {
+          // For ordered or unordered lists
+          sections.push(bulletPointsToDocx(child.outerHTML));
+        }
         }
     });
 
     return sections;
+}
+
+function htmlParagraphToDocx(htmlContent) {
+    // Convert the HTML string into a DOM element
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+
+    const paragraph = tempDiv.querySelector('p');
+    if (!paragraph) {
+        console.warn('No paragraph element found in the provided HTML content.');
+        return;
+    }
+
+    const children = [];
+    Array.from(paragraph.childNodes).forEach(child => {
+        if (child.nodeType === 3) { // Text Node
+            children.push({ type: "TextRun", text: child.nodeValue });
+        } else if (child.nodeType === 1) { // Element Node
+            if (child.tagName === 'STRONG' || child.tagName === 'B') {
+                children.push({ type: "TextRun", text: child.innerText, bold: true });
+            } else if (child.tagName === 'EM' || child.tagName === 'I') {
+                children.push({ type: "TextRun", text: child.innerText, italic: true });
+            } else if (child.tagName === 'U') {
+                children.push({ type: "TextRun", text: child.innerText, underline: { color: 'auto', type: 'SINGLE' } });
+            } else {
+                // Handle any other tags or extend support for more tags if needed
+                children.push({ type: "TextRun", text: child.innerText });
+            }
+        }
+    });
+
+    const paragraphData = `new docx.Paragraph({ children: [${children.join(', ')}] })`;
+    console.log(paragraphData);
+
+    return new docx.Paragraph({ children });
+}
+
+
+
+function bulletPointsToDocx(outerHTML) {
+  console.log("Processing bullet point content:", outerHTML);
+  // You can later replace the above log statement with the actual logic
 }
 
 function saveBlobAsDocx(blob) {
