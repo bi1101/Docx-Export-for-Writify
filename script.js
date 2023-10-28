@@ -135,17 +135,18 @@ function exportDocument() {
 
     // Generating sections
     const sectionsChildren = [];
-    sectionsChildren.push(...createSectionsWithComments(rawComments));
+    //sectionsChildren.push(...createSectionsWithComments(rawComments));
     sectionsChildren.push(...createNormalSections("task-response"));
-    sectionsChildren.push(...createNormalSections("coherence-cohesion"));
+    /*sectionsChildren.push(...createNormalSections("coherence-cohesion"));
     sectionsChildren.push(...createNormalSections("lexical-resource"));
     sectionsChildren.push(...createNormalSections("grammatical-range-accuracy"));
     sectionsChildren.push(...createNormalSections("sample-answer"));
-
+  */
+    console.dir(sectionsChildren);
     const doc = new docx.Document({
-        comments: {
-            children: commentsForDocx
-        },
+        /*comments: {
+          children: commentsForDocx
+        },*/
         sections: [
             {
                 properties: {},
@@ -177,9 +178,9 @@ function createNormalSections(className) {
                 // For paragraph tags
                 sections.push(htmlParagraphToDocx(child.outerHTML));
             } else if (child.tagName === "OL" || child.tagName === "UL") {
-          // For ordered or unordered lists
-          sections.push(bulletPointsToDocx(child.outerHTML));
-        }
+                // For ordered or unordered lists
+                sections.push(bulletPointsToDocx(child.outerHTML));
+            }
         }
     });
 
@@ -188,44 +189,48 @@ function createNormalSections(className) {
 
 function htmlParagraphToDocx(htmlContent) {
     // Convert the HTML string into a DOM element
-    const tempDiv = document.createElement('div');
+    const tempDiv = document.createElement("div");
     tempDiv.innerHTML = htmlContent;
 
-    const paragraph = tempDiv.querySelector('p');
+    const paragraph = tempDiv.querySelector("p");
     if (!paragraph) {
-        console.warn('No paragraph element found in the provided HTML content.');
+        console.warn("No paragraph element found in the provided HTML content.");
         return;
     }
 
     const children = [];
-    Array.from(paragraph.childNodes).forEach(child => {
-        if (child.nodeType === 3) { // Text Node
-            children.push({ type: "TextRun", text: child.nodeValue });
-        } else if (child.nodeType === 1) { // Element Node
-            if (child.tagName === 'STRONG' || child.tagName === 'B') {
-                children.push({ type: "TextRun", text: child.innerText, bold: true });
-            } else if (child.tagName === 'EM' || child.tagName === 'I') {
-                children.push({ type: "TextRun", text: child.innerText, italic: true });
-            } else if (child.tagName === 'U') {
-                children.push({ type: "TextRun", text: child.innerText, underline: { color: 'auto', type: 'SINGLE' } });
+    Array.from(paragraph.childNodes).forEach((child) => {
+        if (child.nodeType === 3) {
+            // Text Node
+            children.push(new docx.TextRun(child.nodeValue));
+        } else if (child.nodeType === 1) {
+            // Element Node
+            if (child.tagName === "STRONG" || child.tagName === "B") {
+                children.push(new docx.TextRun({ text: child.innerText, bold: true }));
+            } else if (child.tagName === "EM" || child.tagName === "I") {
+                children.push(
+                    new docx.TextRun({ text: child.innerText, italic: true })
+                );
+            } else if (child.tagName === "U") {
+                children.push(
+                    new docx.TextRun({
+                        text: child.innerText,
+                        underline: { color: "auto", type: docx.UnderlineType.SINGLE }
+                    })
+                );
             } else {
                 // Handle any other tags or extend support for more tags if needed
-                children.push({ type: "TextRun", text: child.innerText });
+                children.push(new docx.TextRun(child.innerText));
             }
         }
     });
 
-    const paragraphData = `new docx.Paragraph({ children: [${children.join(', ')}] })`;
-    console.log(paragraphData);
-
     return new docx.Paragraph({ children });
 }
 
-
-
 function bulletPointsToDocx(outerHTML) {
-  console.log("Processing bullet point content:", outerHTML);
-  // You can later replace the above log statement with the actual logic
+    console.log("Processing bullet point content:", outerHTML);
+    // You can later replace the above log statement with the actual logic
 }
 
 function saveBlobAsDocx(blob) {
