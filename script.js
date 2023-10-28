@@ -154,9 +154,27 @@ function extractRawCommentsFromHTML() {
   }
   
   function createNormalSections(className) {
-    // Logic for extracting and creating section based on className
-    // TODO: Extract data based on className and generate section content.
-    return [];
+    const element = document.querySelector(`.${className} .elementor-widget-container .elementor-shortcode`);
+    if (!element) {
+        console.warn(`No element found with class name: ${className}`);
+        return [];
+    }
+
+    const sections = [];
+    element.childNodes.forEach(child => {
+        if (child.nodeType === 1) {  // Check if the node is an element
+            if (child.tagName === 'P') {
+                // For paragraph tags
+                sections.push(htmlParagraphToDocx(child.innerHTML));
+                console.log({innerHTML})
+            } else if (child.tagName === 'OL' || child.tagName === 'UL') {
+                // For ordered or unordered lists
+                sections.push(bulletPointsToDocx(child.innerHTML));
+            }
+        }
+    });
+
+    return sections;
   }
   
   function saveBlobAsDocx(blob) {
