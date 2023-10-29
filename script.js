@@ -135,7 +135,7 @@ function exportDocument() {
 
     // Generating sections
     const sectionsChildren = [];
-    //sectionsChildren.push(...createSectionsWithComments(rawComments));
+    sectionsChildren.push(...createSectionsWithComments(rawComments));
     sectionsChildren.push(...createNormalSections("task-response"));
     /*sectionsChildren.push(...createNormalSections("coherence-cohesion"));
     sectionsChildren.push(...createNormalSections("lexical-resource"));
@@ -144,9 +144,9 @@ function exportDocument() {
   */
     console.dir(sectionsChildren);
     const doc = new docx.Document({
-        /*comments: {
-          children: commentsForDocx
-        },*/
+        comments: {
+            children: commentsForDocx
+        },
         sections: [
             {
                 properties: {},
@@ -198,34 +198,67 @@ function htmlParagraphToDocx(htmlContent) {
         return;
     }
 
+    // Use processNodeForFormatting to handle child nodes
     const children = [];
     Array.from(paragraph.childNodes).forEach((child) => {
-        if (child.nodeType === 3) {
-            // Text Node
-            children.push(new docx.TextRun(child.nodeValue));
-        } else if (child.nodeType === 1) {
-            // Element Node
-            if (child.tagName === "STRONG" || child.tagName === "B") {
-                children.push(new docx.TextRun({ text: child.innerText, bold: true }));
-            } else if (child.tagName === "EM" || child.tagName === "I") {
-                children.push(
-                    new docx.TextRun({ text: child.innerText, italic: true })
-                );
-            } else if (child.tagName === "U") {
-                children.push(
-                    new docx.TextRun({
-                        text: child.innerText,
-                        underline: { color: "auto", type: docx.UnderlineType.SINGLE }
-                    })
-                );
-            } else {
-                // Handle any other tags or extend support for more tags if needed
-                children.push(new docx.TextRun(child.innerText));
-            }
-        }
+        children.push(...processNodeForFormatting(child));
     });
 
     return new docx.Paragraph({ children });
+}
+
+function processNodeForFormatting(node) {
+    let textRuns = [];
+
+    // Handle text nodes
+    if (node.nodeType === 3) {
+        // Node type 3 is a Text node
+        textRuns.push(new docx.TextRun(node.nodeValue));
+    }
+
+    // Handle element nodes like <strong>, <em>, etc.
+    else if (node.nodeType === 1) {
+        // Node type 1 is an Element node
+        const textContent = node.innerText;
+
+        // Basic formatting options
+        let formattingOptions = {};
+
+        // Check the tag to determine formatting
+        switch (node.tagName) {
+            case "STRONG":
+            case "B":
+                formattingOptions.bold = true;
+                break;
+            case "EM":
+            case "I":
+                formattingOptions.italic = true;
+                break;
+            case "U":
+                formattingOptions.underline = {
+                    color: "auto",
+                    type: docx.UnderlineType.SINGLE
+                };
+                break;
+            // Add cases for other formatting tags as needed
+        }
+
+        // Check for nested formatting
+        if (node.children.length > 0) {
+            Array.from(node.childNodes).forEach((childNode) => {
+                textRuns.push(...processNodeForFormatting(childNode));
+            });
+        } else {
+            textRuns.push(
+                new docx.TextRun({
+                    text: textContent,
+                    ...formattingOptions
+                })
+            );
+        }
+    }
+
+    return textRuns;
 }
 
 function bulletPointsToDocx(outerHTML) {
