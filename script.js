@@ -129,38 +129,6 @@ function createSectionsWithComments(rawComments) {
     return outputParagraphs;
 }
 
-function exportDocument() {
-    const rawComments = extractRawCommentsFromHTML();
-    const commentsForDocx = convertRawCommentsToDocxFormat(rawComments);
-
-    // Generating sections
-    const sectionsChildren = [];
-    sectionsChildren.push(...createSectionsWithComments(rawComments));
-    sectionsChildren.push(...createNormalSections("task-response"));
-    /*sectionsChildren.push(...createNormalSections("coherence-cohesion"));
-    sectionsChildren.push(...createNormalSections("lexical-resource"));
-    sectionsChildren.push(...createNormalSections("grammatical-range-accuracy"));
-    sectionsChildren.push(...createNormalSections("sample-answer"));
-  */
-    console.dir(sectionsChildren);
-    const doc = new docx.Document({
-        comments: {
-            children: commentsForDocx
-        },
-        sections: [
-            {
-                properties: {},
-                children: sectionsChildren
-            }
-        ]
-    });
-
-    // Convert the document to a blob and save it
-    docx.Packer.toBlob(doc).then((blob) => {
-        saveBlobAsDocx(blob);
-    });
-}
-
 function createNormalSections(className) {
     const element = document.querySelector(
         `.${className} .elementor-widget-container .elementor-shortcode`
@@ -179,7 +147,7 @@ function createNormalSections(className) {
                 sections.push(htmlParagraphToDocx(child.outerHTML));
             } else if (child.tagName === "OL" || child.tagName === "UL") {
                 // For ordered or unordered lists
-                sections.push(bulletPointsToDocx(child.outerHTML));
+                sections.push(...bulletPointsToDocx(child.outerHTML));
             }
         }
     });
@@ -261,16 +229,123 @@ function processNodeForFormatting(node) {
     return textRuns;
 }
 
+function processList(list, level, paragraphs) {
+    Array.from(list.children).forEach((item) => {
+        paragraphs.push(createBulletPointParagraphs(item, level));
+
+        // Process nested lists
+        const nestedList = item.querySelector("ul, ol");
+        if (nestedList) {
+            processList(nestedList, level + 1, paragraphs);
+        }
+    });
+}
+
+function createBulletPointParagraphs(item, level) {
+    let contentTextRuns = [];
+
+    // Check if the item contains a paragraph element
+    const paragraphElement = item.querySelector("p");
+
+    if (paragraphElement) {
+        contentTextRuns = processNodeForFormatting(paragraphElement);
+    } else {
+        Array.from(item.childNodes).forEach((childNode) => {
+            contentTextRuns.push(...processNodeForFormatting(childNode));
+        });
+    }
+
+    return new docx.Paragraph({
+        children: contentTextRuns,
+        bullet: {
+            level: level
+        }
+    });
+}
+
 function bulletPointsToDocx(outerHTML) {
-    console.log("Processing bullet point content:", outerHTML);
-    // You can later replace the above log statement with the actual logic
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = outerHTML;
+
+    const docxItems = [];
+
+    // Check whether the provided outerHTML is an ordered or unordered list and process it accordingly
+    const listElement = tempDiv.querySelector("ol, ul");
+    if (listElement) {
+        processList(listElement, 0, docxItems);
+    } else {
+        console.warn(
+            "Provided HTML does not contain a valid list element (ol or ul)."
+        );
+        return [];
+    }
+
+    return docxItems; // Ensure we return the docxItems
+}
+
+function exportDocument() {
+    const rawComments = extractRawCommentsFromHTML();
+    const commentsForDocx = convertRawCommentsToDocxFormat(rawComments);
+
+    // Extract headers from the document
+    let tH = document.getElementsByClassName("tr_header")[0].innerText;
+    let ccH = document.getElementsByClassName("cc_header")[0].innerText;
+    let lrH = document.getElementsByClassName("lr_header")[0].innerText;
+    let grH = document.getElementsByClassName("gra_header")[0].innerText;
+    let shH = document.getElementsByClassName("sample_header")[0].innerText;
+
+    // Generating sections
+    const sectionsChildren = [];
+    sectionsChildren.push(...createSectionsWithComments(rawComments));
+
+    // Add headers and their respective sections
+    sectionsChildren.push(createHeaderParagraph(tH));
+    sectionsChildren.push(...createNormalSections("tr_response"));
+
+    sectionsChildren.push(createHeaderParagraph(ccH));
+    sectionsChildren.push(...createNormalSections("cc_response"));
+
+    sectionsChildren.push(createHeaderParagraph(lrH));
+    sectionsChildren.push(...createNormalSections("lr_response"));
+
+    sectionsChildren.push(createHeaderParagraph(grH));
+    sectionsChildren.push(...createNormalSections("gra_response"));
+
+    sectionsChildren.push(createHeaderParagraph(shH));
+    sectionsChildren.push(...createNormalSections("sample_response"));
+
+    console.dir(sectionsChildren);
+    const doc = new docx.Document({
+        comments: {
+            children: commentsForDocx
+        },
+        sections: [
+            {
+                properties: {},
+                children: sectionsChildren
+            }
+        ]
+    });
+
+    // Convert the document to a blob and save it
+    docx.Packer.toBlob(doc).then((blob) => {
+        saveBlobAsDocx(blob);
+    });
+}
+
+function createHeaderParagraph(text) {
+    const { Paragraph, TextRun, HeadingLevel } = docx;
+    return new Paragraph({
+        children: [new TextRun(text)],
+        heading: HeadingLevel.HEADING_1
+    });
 }
 
 function saveBlobAsDocx(blob) {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "ielts-comments.docx";
+    a.download = "Result.docx";
     document.body.appendChild(a);
     a.click();
     a.remove();
