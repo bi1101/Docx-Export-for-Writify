@@ -283,7 +283,15 @@ function bulletPointsToDocx(outerHTML) {
     return docxItems; // Ensure we return the docxItems
 }
 
-function exportDocument() {
+async function fetchStylesXML() {
+    const response = await fetch('https://cdn.jsdelivr.net/gh/bi1101/Docx-Export-for-Writify/styles.xml');
+    const xmlText = await response.text();
+    return xmlText;
+}
+
+async function exportDocument() {
+    const customStyles = await fetchStylesXML();
+
     const rawComments = extractRawCommentsFromHTML();
     const commentsForDocx = convertRawCommentsToDocxFormat(rawComments);
 
@@ -301,21 +309,18 @@ function exportDocument() {
     // Add headers and their respective sections
     sectionsChildren.push(createHeaderParagraph(tH));
     sectionsChildren.push(...createNormalSections("tr_response"));
-
     sectionsChildren.push(createHeaderParagraph(ccH));
     sectionsChildren.push(...createNormalSections("cc_response"));
-
     sectionsChildren.push(createHeaderParagraph(lrH));
     sectionsChildren.push(...createNormalSections("lr_response"));
-
     sectionsChildren.push(createHeaderParagraph(grH));
     sectionsChildren.push(...createNormalSections("gra_response"));
-
     sectionsChildren.push(createHeaderParagraph(shH));
     sectionsChildren.push(...createNormalSections("sample_response"));
 
-    console.dir(sectionsChildren);
     const doc = new docx.Document({
+        title: "Result", // Adjust as needed
+        externalStyles: customStyles, // Use externalStyles instead of styles
         comments: {
             children: commentsForDocx
         },
@@ -354,6 +359,6 @@ function saveBlobAsDocx(blob) {
 // Event Listener
 document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("export-docx").addEventListener("click", function () {
-        exportDocument();
+        exportDocument().catch(error => console.error(error));
     });
 });
